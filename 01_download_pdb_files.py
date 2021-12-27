@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 
 from Bio.PDB import *
@@ -15,6 +17,10 @@ def download_pdbs(dataset):
                        for line in f.readlines()])
 
     pdbl.download_pdb_files(pdb_ids, file_format="pdb", pdir="data/pdb_files")
+
+    for pdb_id in pdb_ids:
+        os.rename(f"data/pdb_files/pdb{pdb_id.lower()}.ent",
+                  f"data/pdb_files/pdb{pdb_id.lower()}.pdb")
 
 
 for dataset in progressbar(DATASETS):
