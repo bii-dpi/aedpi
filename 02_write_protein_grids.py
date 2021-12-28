@@ -110,11 +110,14 @@ def write_protein_pocket_grid(fname):
 if __name__ == "__main__":
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', PDBConstructionWarning)
-        """
         for fname in progressbar(os.listdir("data/pdb_files")):
-            write_protein_pocket_grid(fname)
+            pdb_id = fname[3:-4].upper()
+            if not os.path.isfile(f"data/grids/{pdb_id}_grid.npy"):
+                print(f"data/grids/{pdb_id}_grid")
+                write_protein_pocket_grid(fname)
         """
         with ProcessPoolExecutor() as executor:
             executor.map(write_protein_pocket_grid,
                          os.listdir("data/pdb_files"))
+        """
 
