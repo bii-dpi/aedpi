@@ -22,72 +22,44 @@ from torchsummary import summary
 from random import randint
 
 
-
+torch.manual_seed(1234)
 
 if not os.path.exists('models'):
     os.mkdir('models')
 
 
-class ProteinDataset(Dataset):
+class LigandDataset(Dataset):
     def __init__(self):
-        self.grid_list = [f"data/grids/{fname}"
-                          for fname in os.listdir("data/grids/")
-                          if fname.endswith("_processed.npy")]
+        self.all_fingerprints = np.load("data/all_fingerprints.npy")
 
     def __len__(self):
-        return len(self.grid_list)
+        return len(self.all_fingerprints)
 
     def __getitem__(self, idx):
-        image = np.load(self.grid_list[idx])
-        image = np.expand_dims(image, axis=0)
-        image = torch.from_numpy(image).float()
+        x = self.all_fingerprints[idx]
+        x = np.expand_dims(x, axis=0)
+        x = torch.from_numpy(x).float()
 
-        return image
-
-
-
-"""
-img_transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.5), (0.5))
-])
-"""
-dataset = ProteinDataset()
-
-num_epochs = 100
-learning_rate = 1e-3
+        return x
 
 
+dataset = LigandDataset()
 
 # Device configuration
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-bs = 154
-bs = 16
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+bs = 10000
 # Load Data
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, shuffle=True)
 
 
-class Flatten(nn.Module):
-    def forward(self, input):
-        return input.view(input.size(0), -1)
-
-class UnFlatten(nn.Module):
-    def forward(self, input, size=2048):
-        return input.view(input.size(0), size, 1, 1, 1)
-
 class VAE(nn.Module):
-    def __init__(self, image_channels=1, h_dim=2048, z_dim=512):
+    def __init__(self, h_dim=2048, z_dim=512):
         super(VAE, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv3d(image_channels, 32, kernel_size=4, stride=2),
+            nn.Linear(1024, 2048),
             nn.ReLU(),
-            nn.Conv3d(32, 64, kernel_size=4, stride=2),
+            nn.Linear(2048, 2048),
             nn.ReLU(),
-            nn.Conv3d(64, 128, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv3d(128, 256, kernel_size=4, stride=2),
-            nn.ReLU(),
-            Flatten()
         )
 
         self.fc1 = nn.Linear(h_dim, z_dim)
@@ -95,15 +67,11 @@ class VAE(nn.Module):
         self.fc3 = nn.Linear(z_dim, h_dim)
 
         self.decoder = nn.Sequential(
-            UnFlatten(),
-            nn.ConvTranspose3d(h_dim, 128, kernel_size=5, stride=2),
             nn.ReLU(),
-            nn.ConvTranspose3d(128, 64, kernel_size=5, stride=2),
+            nn.Linear(2048, 2048),
             nn.ReLU(),
-            nn.ConvTranspose3d(64, 32, kernel_size=6, stride=2),
+            nn.Linear(2048, 1024),
             nn.ReLU(),
-            nn.ConvTranspose3d(32, image_channels, kernel_size=6, stride=2),
-            nn.Sigmoid(),
         )
 
     def reparameterize(self, mu, logvar):
@@ -135,11 +103,11 @@ class VAE(nn.Module):
 
 vae = VAE().to(device)
 #model.load_state_dict(torch.load('models/protein_vae.pt', map_location='cpu'))
-optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(vae.parameters(), lr=1e-4)
 
 def loss_fn(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x, size_average=False)
-    #BCE = F.mse_loss(recon_x, x, size_average=False)
+    #BCE = F.binary_cross_entropy(recon_x, x, size_average=False)
+    BCE = F.mse_loss(recon_x, x, size_average=False)
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -148,21 +116,30 @@ def loss_fn(recon_x, x, mu, logvar):
 
     return BCE + KLD, BCE, KLD
 
-epochs = 50
+epochs = 500
+global_min, best_epoch = 1000000, -1
 for epoch in range(epochs):
-    for idx, images in enumerate(dataloader):
-        images = images.to(device)
-        recon_images, mu, logvar = vae(images)
-        loss, bce, kld = loss_fn(recon_images, images, mu, logvar)
+    total_loss, total_bce, total_kld = 0, 0, 0
+    for idx, xs in enumerate(dataloader):
+        xs = xs.to(device)
+        recon_xs, mu, logvar = vae(xs)
+        loss, bce, kld = loss_fn(recon_xs, xs, mu, logvar)
+        total_loss += loss.data.item()
+        total_bce += bce.data.item()
+        total_kld += kld.data.item()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        to_print = "Epoch[{}/{}] Loss: {:.3f} {:.3f} {:.3f}".format(epoch+1,
-                                epochs, loss.data.item()/bs, bce.data.item()/bs,
-kld.data.item()/bs)
-        print(to_print)
+    to_print = "Epoch[{}/{}] Loss: {:.3f} {:.3f} {:.3f}".format(epoch+1,
+                            epochs, total_loss/len(dataset),
+                            total_bce/len(dataset), total_kld/len(dataset))
+    print(to_print)
 
+    if total_loss/len(dataset) < global_min:
+        global_min = total_loss/len(dataset)
+        best_epoch = epoch
+        torch.save(vae.state_dict(), 'models/ligand_vae.pt')
 
-torch.save(vae.state_dict(), 'models/protein_vae.pt')
+    print(global_min, best_epoch)
 
