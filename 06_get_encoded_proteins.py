@@ -66,10 +66,13 @@ for images in dataloader:
 protein_list = dataset.get_grid_list()
 protein_dict = {}
 for i in range(len(encoded)):
-    protein_dict[protein_list[i]] = encoded[i]
+    protein_dict[protein_list[i]] = torch.unsqueeze(encoded[i].detach().cpu(),
+                                                    axis=0)
 
 print(encoded.shape)
+print(len(protein_dict))
 print(protein_dict["3EML"].shape)
+print(protein_dict["3EML"].dtype)
 
 with open("data/protein_dict.pkl", "wb") as f:
     pickle.dump(protein_dict, f)
