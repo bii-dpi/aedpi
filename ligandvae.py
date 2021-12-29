@@ -21,9 +21,7 @@ from torchsummary import summary
 
 from random import randint
 
-
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-
+device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 
 class VAE(nn.Module):
     def __init__(self, h_dim=2048, z_dim=512):

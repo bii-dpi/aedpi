@@ -8,12 +8,34 @@ from torch import nn
 from xx import ligand_dict
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-
+from sklearn.metrics import (roc_auc_score,
+                             precision_score,
+                             recall_score,
+                             average_precision_score,
+                             precision_recall_curve)
+from progressbar import progressbar
 
 DIRECTION = "bztdz"
 
 np.random.seed(12345)
 protein_dict = pd.read_pickle("data/protein_dict.pkl")
+
+
+def evaluate(predicted, y):
+    auc = roc_auc_score(y, predicted)
+    aupr = average_precision_score(y, predicted)
+
+    precision = precision_score(y, np.round(predicted))
+    recall = recall_score(y, np.round(predicted))
+
+    precisions, recalls, thresholds = precision_recall_curve(y, predicted)
+    thresholds = np.append(thresholds, [0.64])
+    results = pd.DataFrame.from_dict({"precision": precisions, "recall": recalls,
+                                      "threshold": thresholds})
+
+    results.to_csv(f"data/{DIRECTION}.csv")
+
+    return f"AUC: {auc}, AUPR: {aupr}, precision: {precision}, recall: {recall}"
 
 
 class PairDataset(Dataset):
@@ -27,8 +49,6 @@ class PairDataset(Dataset):
             self.read_examples(f"../get_data/{dataset}/{dataset.lower()}_actives")
         decoys = \
             self.read_examples(f"../get_data/{dataset}/{dataset.lower()}_zs_decoys")
-        np.random.shuffle(decoys)
-        decoys = decoys[:len(actives)]
         self.examples = actives + decoys
 
 
@@ -47,9 +67,9 @@ class PairDataset(Dataset):
 
 
     def __getitem__(self, idx):
-        ligand = ligand_dict[self.training_examples[idx][0]]
-        protein = protein_dict[self.training_examples[idx][1]]
-        label = self.training_examples[idx][2]
+        ligand = ligand_dict[self.examples[idx][0]]
+        protein = protein_dict[self.examples[idx][1]]
+        label = self.examples[idx][2]
 
         x = ligand * protein
 
@@ -78,17 +98,22 @@ class Classifier(nn.Module):
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 classifier = Classifier().to(device)
+classifier.load_state_dict(torch.load(f"models/classifier_{DIRECTION}.pt"))
 
 dataloader = torch.utils.data.DataLoader(PairDataset(), batch_size=10000, shuffle=False)
 
 
+all_ys = []
+all_labels = []
 for xs, labels in progressbar(dataloader):
     xs = xs.to(device)
     labels = labels.to(device)
     ys = classifier(xs)
-    ys = ys.flatten().float()
-    labels = labels.float()
-    loss = loss_fn(ys, labels)
-    total_loss += loss.data.item()
 
+    ys = ys.flatten().float().detach().cpu().numpy()
+    all_ys.append(ys)
+    labels = labels.float().detach().cpu().numpy()
+    all_labels.append(labels)
 
+print(evaluate(np.concatenate(all_ys),
+               np.concatenate(all_labels)))

@@ -11,10 +11,12 @@ from xx import ligand_dict, device
 
 torch.manual_seed(1234)
 DIRECTION = "bztdz"
+CUDA = 1 if DIRECTION == "bztdz" else 0
 
 np.random.seed(12345)
 protein_dict = pd.read_pickle("data/protein_dict.pkl")
 
+device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
 
 class PairDataset(Dataset):
     def __init__(self):
@@ -27,6 +29,8 @@ class PairDataset(Dataset):
             self.read_examples(f"../get_data/{dataset}/{dataset.lower()}_actives")
         decoys = \
             self.read_examples(f"../get_data/{dataset}/{dataset.lower()}_zs_decoys")
+        np.random.shuffle(decoys)
+        decoys = decoys[:len(actives)]
         examples = actives + decoys
         np.random.shuffle(examples)
 
@@ -111,7 +115,7 @@ optimizer = torch.optim.Adam(classifier.parameters(), lr=1e-4)
 loss_fn = nn.BCELoss()
 validation_x, validation_labels = dataset.get_validation_examples()
 
-epochs = 100
+epochs = 10000
 global_min, best_epoch = 1000000, -1
 for epoch in range(epochs):
     total_loss = 0
