@@ -15,7 +15,7 @@ from sklearn.metrics import (roc_auc_score,
                              precision_recall_curve)
 from progressbar import progressbar
 
-DIRECTION = "dztbz"
+DIRECTION = "bztdz"
 
 np.random.seed(12345)
 protein_dict = pd.read_pickle("data/protein_dict.pkl")

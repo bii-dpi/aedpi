@@ -24,7 +24,7 @@ from torchsummary import summary
 
 from random import randint
 
-from ligandvae import VAE, device
+from ligandvae import AE, device
 
 
 torch.manual_seed(123456)
@@ -54,13 +54,13 @@ bs = 10000
 # Load Data
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, shuffle=False)
 
-vae = VAE().to(device)
-vae.load_state_dict(torch.load("models/ligand_vae.pt", map_location="cpu"))
+ae = AE().to(device)
+ae.load_state_dict(torch.load("models/ligand_ae.pt", map_location="cpu"))
 
 ligand_dict = {}
 for smiles, images in progressbar(dataloader):
     images = images.to(device)
-    encoded, _, _ = vae.encode(images)
+    encoded = ae.encode(images)
     encoded = encoded.detach().cpu()
     for i in range(len(smiles)):
         ligand_dict[smiles[i]] = encoded[i]

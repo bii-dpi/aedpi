@@ -11,7 +11,7 @@ from xx import ligand_dict, device
 
 torch.manual_seed(1234)
 DIRECTION = "bztdz"
-CUDA = 1 if DIRECTION == "bztdz" else 0
+CUDA = 2 if DIRECTION == "bztdz" else 3
 
 np.random.seed(12345)
 protein_dict = pd.read_pickle("data/protein_dict.pkl")

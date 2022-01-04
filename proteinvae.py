@@ -23,7 +23,7 @@ from random import randint
 
 
 # Device configuration
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
 
 
 class Flatten(nn.Module):
@@ -35,9 +35,9 @@ class UnFlatten(nn.Module):
         return input.view(input.size(0), size, 1, 1, 1)
 
 
-class VAE(nn.Module):
+class AE(nn.Module):
     def __init__(self, image_channels=1, h_dim=2048, z_dim=512):
-        super(VAE, self).__init__()
+        super(AE, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv3d(image_channels, 32, kernel_size=4, stride=2),
             nn.ReLU(),
@@ -51,7 +51,6 @@ class VAE(nn.Module):
         )
 
         self.fc1 = nn.Linear(h_dim, z_dim)
-        self.fc2 = nn.Linear(h_dim, z_dim)
         self.fc3 = nn.Linear(z_dim, h_dim)
 
         self.decoder = nn.Sequential(
@@ -66,22 +65,10 @@ class VAE(nn.Module):
             nn.ReLU(),
         )
 
-    def reparameterize(self, mu, logvar):
-        std = logvar.mul(0.5).exp_().to(device)
-        # return torch.normal(mu, std)
-        esp = torch.randn(*mu.size()).to(device)
-        z = mu + std * esp
-        return z
-
-    def bottleneck(self, h):
-        mu, logvar = self.fc1(h), self.fc2(h)
-        z = self.reparameterize(mu, logvar)
-        return z, mu, logvar
-
     def encode(self, x):
         h = self.encoder(x)
-        z, mu, logvar = self.bottleneck(h)
-        return z, mu, logvar
+        z= self.fc1(h)
+        return z
 
     def decode(self, z):
         z = self.fc3(z)
@@ -89,7 +76,7 @@ class VAE(nn.Module):
         return z
 
     def forward(self, x):
-        z, mu, logvar = self.encode(x)
+        z= self.encode(x)
         z = self.decode(z)
-        return z, mu, logvar
+        return z
 
