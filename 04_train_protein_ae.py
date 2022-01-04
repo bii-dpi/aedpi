@@ -56,7 +56,7 @@ img_transform = transforms.Compose([
 dataset = ProteinDataset()
 
 # Device configuration
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 bs = 16
 bs = 154
 # Load Data

@@ -10,8 +10,8 @@ from xx import ligand_dict, device
 
 
 torch.manual_seed(1234)
-DIRECTION = "bztdz"
-CUDA = 1 if DIRECTION == "bztdz" else 0
+DIRECTION = "dztbz"
+CUDA = 2 if DIRECTION == "bztdz" else 2
 
 np.random.seed(12345)
 protein_dict = pd.read_pickle("data/protein_dict.pkl")
@@ -61,7 +61,9 @@ class PairDataset(Dataset):
             ligand = ligand_dict[example[0]]
             protein = protein_dict[example[1]]
 
-            all_x.append(ligand * protein)
+            x = torch.cat((ligand, protein), dim=1)
+            #all_x.append(ligand * protein)
+            all_x.append(x)
             all_labels.append(example[2])
 
         self.validation_examples = torch.cat(all_x).to(device)
@@ -77,7 +79,8 @@ class PairDataset(Dataset):
         protein = protein_dict[self.training_examples[idx][1]]
         label = self.training_examples[idx][2]
 
-        x = ligand * protein
+#        x = ligand * protein
+        x = torch.cat((ligand, protein), dim=1)
 
         return x, label
 
@@ -95,7 +98,7 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
 
         self.fwd = nn.Sequential(
-                    nn.Linear(512, 256),
+                    nn.Linear(1024, 256),
                     nn.ReLU(),
                     nn.Linear(256, 128),
                     nn.ReLU(),

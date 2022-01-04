@@ -46,7 +46,7 @@ class LigandDataset(Dataset):
 dataset = LigandDataset()
 
 # Device configuration
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
 bs = 10000
 # Load Data
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, shuffle=True)
