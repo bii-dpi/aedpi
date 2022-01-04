@@ -15,7 +15,7 @@ from sklearn.metrics import (roc_auc_score,
                              precision_recall_curve)
 from progressbar import progressbar
 
-DIRECTION = "bztdz"
+DIRECTION = "dztbz"
 
 np.random.seed(12345)
 protein_dict = pd.read_pickle("data/protein_dict.pkl")
@@ -71,7 +71,8 @@ class PairDataset(Dataset):
         protein = protein_dict[self.examples[idx][1]]
         label = self.examples[idx][2]
 
-        x = ligand * protein
+        #x = ligand * protein
+        x = torch.cat((ligand, protein), dim=1)
 
         return x, label
 
@@ -81,7 +82,7 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
 
         self.fwd = nn.Sequential(
-                    nn.Linear(512, 256),
+                    nn.Linear(1024, 256),
                     nn.ReLU(),
                     nn.Linear(256, 128),
                     nn.ReLU(),
