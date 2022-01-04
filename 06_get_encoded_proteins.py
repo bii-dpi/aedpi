@@ -22,7 +22,7 @@ from torchsummary import summary
 
 from random import randint
 
-from proteinvae import AE, device
+from proteinvae import VAE, device
 
 
 torch.manual_seed(123456)
@@ -55,13 +55,13 @@ bs = 154
 # Load Data
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, shuffle=False)
 
-ae = AE().to(device)
-ae.load_state_dict(torch.load('models/protein_ae.pt', map_location='cpu'))
+vae = VAE().to(device)
+vae.load_state_dict(torch.load('models/protein_vae.pt', map_location='cpu'))
 
 
 for images in dataloader:
     images = images.to(device)
-    encoded = ae.encode(images)
+    encoded, _, _ = vae.encode(images)
 
 protein_list = dataset.get_grid_list()
 protein_dict = {}

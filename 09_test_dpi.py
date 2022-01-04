@@ -71,8 +71,7 @@ class PairDataset(Dataset):
         protein = protein_dict[self.examples[idx][1]]
         label = self.examples[idx][2]
 
-        #x = ligand * protein
-        x = torch.cat((ligand, protein), dim=1)
+        x = ligand * protein
 
         return x, label
 
@@ -82,7 +81,7 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
 
         self.fwd = nn.Sequential(
-                    nn.Linear(1024, 256),
+                    nn.Linear(512, 256),
                     nn.ReLU(),
                     nn.Linear(256, 128),
                     nn.ReLU(),
