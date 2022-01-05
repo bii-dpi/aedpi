@@ -4,9 +4,9 @@ import numpy as np
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import DataStructs
 from progressbar import progressbar
 from concurrent.futures import ProcessPoolExecutor
-from rdkit.Chem import DataStructs
 
 
 def get_fingerprint(smiles):
