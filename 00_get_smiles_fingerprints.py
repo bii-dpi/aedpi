@@ -35,7 +35,7 @@ all_smiles = set()
 for dataset in progressbar(["BindingDB", "DUDE"]):
     for suffix in ["actives", "decoys"]:
         all_smiles |= \
-            get_smiles(f"../get_data/{dataset}/{dataset.lower()}_zs_{suffix}")
+            get_smiles(f"../get_data/{dataset}/{dataset.lower()}_{suffix}")
 
 all_smiles = list(all_smiles)
 with open("data/all_smiles.pkl", "wb") as f:
