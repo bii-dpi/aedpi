@@ -58,11 +58,11 @@ class Classifier(nn.Module):
         self.ligand_fc2 = nn.Linear(z_dim, h_dim)
 
         self.ligand_decoder = nn.Sequential(
-            nn.ReLU(),
+            nn.Sigmoid(),
             nn.Linear(2048, 2048),
-            nn.ReLU(),
+            nn.Sigmoid(),
             nn.Linear(2048, 1024),
-            nn.ReLU(),
+            nn.Sigmoid(),
         )
 
         self.fcnn = nn.Sequential(

@@ -72,7 +72,7 @@ def get_dataloaders(direction, resample, seed, batch_size):
     actives = \
         read_examples(f"../get_data/{dataset}/{dataset.lower()}_actives")
     decoys = \
-        read_examples(f"../get_data/{dataset}/{dataset.lower()}_zs_decoys")
+        read_examples(f"../get_data/{dataset}/{dataset.lower()}_decoys")
 
     if resample:
         np.random.shuffle(decoys)

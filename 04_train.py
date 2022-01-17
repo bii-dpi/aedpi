@@ -35,7 +35,7 @@ epochs = 100
 global_min, best_epoch = 1e6, -1
 for epoch in range(epochs):
     total_both, total_bce, total_mse = 0, 0, 0
-    for proteins, ligands, y in progressbar(training_dl):
+    for proteins, ligands, y in training_dl:
         optimizer.zero_grad()
         proteins, ligands, y = (proteins.to(device),
                                 ligands.to(device),
