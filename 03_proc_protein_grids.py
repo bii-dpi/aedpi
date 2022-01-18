@@ -6,7 +6,7 @@ from scipy.ndimage import zoom
 from progressbar import progressbar
 
 
-LENGTH = 64.
+LENGTH = 16.
 
 raw_grid_paths = ["data/grids/" + fname for fname in os.listdir("data/grids")
                   if not fname.endswith("_processed.npy")]

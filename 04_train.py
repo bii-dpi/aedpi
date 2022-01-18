@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 
 DIRECTION = "bztdz"
-CUDA = 0
+CUDA = 1
 BATCH_SIZE = 128
 SEED = 12345
 LR = 1e-4
