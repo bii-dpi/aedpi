@@ -2,6 +2,9 @@ import os
 import torch
 from torch import nn
 
+
+H_DIM = 512
+
 if not os.path.exists('models'):
     os.mkdir('models')
 
@@ -12,22 +15,18 @@ class Flatten(nn.Module):
 
 
 class UnFlatten(nn.Module):
-    def forward(self, input, size=2048):
+    def forward(self, input, size=H_DIM):
         return input.view(input.size(0), size, 1, 1, 1)
 
 
 class Classifier(nn.Module):
-    def __init__(self, h_dim=2048, z_dim=512):
+    def __init__(self, h_dim=H_DIM, z_dim=512):
         super(Classifier, self).__init__()
 
         self.protein_encoder = nn.Sequential(
             nn.Conv3d(1, 32, kernel_size=4, stride=2),
             nn.ReLU(),
             nn.Conv3d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv3d(64, 128, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv3d(128, 256, kernel_size=4, stride=2),
             nn.ReLU(),
             Flatten()
         )
@@ -37,20 +36,16 @@ class Classifier(nn.Module):
 
         self.protein_decoder = nn.Sequential(
             UnFlatten(),
-            nn.ConvTranspose3d(h_dim, 128, kernel_size=5, stride=2),
-            nn.ReLU(),
-            nn.ConvTranspose3d(128, 64, kernel_size=5, stride=2),
-            nn.ReLU(),
-            nn.ConvTranspose3d(64, 32, kernel_size=6, stride=2),
+            nn.ConvTranspose3d(H_DIM, 32, kernel_size=6, stride=2),
             nn.ReLU(),
             nn.ConvTranspose3d(32, 1, kernel_size=6, stride=2),
             nn.ReLU(),
         )
 
         self.ligand_encoder = nn.Sequential(
-            nn.Linear(1024, 2048),
+            nn.Linear(1024, 768),
             nn.ReLU(),
-            nn.Linear(2048, 2048),
+            nn.Linear(768, 512),
             nn.ReLU(),
         )
 
@@ -59,9 +54,9 @@ class Classifier(nn.Module):
 
         self.ligand_decoder = nn.Sequential(
             nn.Sigmoid(),
-            nn.Linear(2048, 2048),
+            nn.Linear(512, 768),
             nn.Sigmoid(),
-            nn.Linear(2048, 1024),
+            nn.Linear(768, 1024),
             nn.Sigmoid(),
         )
 

@@ -1,4 +1,4 @@
-width = 64
+width = 16
 old_width = width
 
 
@@ -18,9 +18,7 @@ def get_trans_dim(dimension, kernel_size, stride, output_padding=0, padding=0, d
 
 
 encoder = [(32, 4, 2),
-           (64, 4, 2),
-           (128, 4, 2),
-           (256, 4, 2)]
+           (64, 4, 2)]
 
 for out_channels, kernel_size, stride in encoder:
     width = int(get_conv_dim(width, kernel_size, stride))
@@ -28,9 +26,7 @@ for out_channels, kernel_size, stride in encoder:
 
 print(f"After encoding: {width ** 3 * out_channels}")
 
-decoder = [(128, 5, 2),
-           (64, 5, 2),
-           (32, 6, 2),
+decoder = [(32, 6, 2),
            (1, 6, 2)]
 
 width = 1

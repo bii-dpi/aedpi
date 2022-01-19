@@ -19,7 +19,7 @@ BATCH_SIZE = 128
 SEED = 12345
 
 device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
-training_dl, _ = get_dataloaders("bztdz" if DIRECTION == "dztbz" else "dztbz",
+_, training_dl = get_dataloaders("bztdz" if DIRECTION == "dztbz" else "dztbz",
                                  False, SEED, BATCH_SIZE)
 
 classifier = Classifier().to(device)
