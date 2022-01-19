@@ -26,8 +26,12 @@ class Classifier(nn.Module):
         self.protein_encoder = nn.Sequential(
             nn.Conv3d(1, 32, kernel_size=4, stride=2),
             nn.ReLU(),
+#            nn.BatchNorm3d(32),
+
             nn.Conv3d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
+#            nn.BatchNorm3d(64),
+
             Flatten()
         )
 
@@ -36,8 +40,11 @@ class Classifier(nn.Module):
 
         self.protein_decoder = nn.Sequential(
             UnFlatten(),
+
             nn.ConvTranspose3d(H_DIM, 32, kernel_size=6, stride=2),
             nn.ReLU(),
+ #           nn.BatchNorm3d(32),
+
             nn.ConvTranspose3d(32, 1, kernel_size=6, stride=2),
             nn.ReLU(),
         )
@@ -45,8 +52,11 @@ class Classifier(nn.Module):
         self.ligand_encoder = nn.Sequential(
             nn.Linear(1024, 768),
             nn.ReLU(),
+            nn.BatchNorm1d(768),
+
             nn.Linear(768, 512),
             nn.ReLU(),
+            nn.BatchNorm1d(512),
         )
 
         self.ligand_fc1 = nn.Linear(h_dim, z_dim)
@@ -54,8 +64,12 @@ class Classifier(nn.Module):
 
         self.ligand_decoder = nn.Sequential(
             nn.Sigmoid(),
+            nn.BatchNorm1d(512),
+
             nn.Linear(512, 768),
             nn.Sigmoid(),
+            nn.BatchNorm1d(768),
+
             nn.Linear(768, 1024),
             nn.Sigmoid(),
         )
@@ -63,10 +77,16 @@ class Classifier(nn.Module):
         self.fcnn = nn.Sequential(
             nn.Linear(1024, 256),
             nn.ReLU(),
+            nn.BatchNorm1d(256),
+
             nn.Linear(256, 128),
             nn.ReLU(),
+            nn.BatchNorm1d(128),
+
             nn.Linear(128, 64),
             nn.ReLU(),
+            nn.BatchNorm1d(64),
+
             nn.Linear(64, 1),
             nn.Sigmoid()
         )
