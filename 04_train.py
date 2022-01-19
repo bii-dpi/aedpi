@@ -5,21 +5,50 @@ from progressbar import progressbar
 import torch.nn.functional as F
 
 
+
+
 DIRECTION = "bztdz"
-CUDA = 1
 BATCH_SIZE = 128
 SEED = 12345
+GAP = 8
 LR = 1e-4
-LAMBDA = 1e-2
+LAMBDA = 0.01
+CUDA = 0
 
 
 device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
-training_dl, validation_dl = get_dataloaders(DIRECTION, True, SEED,
+training_dl, _ = get_dataloaders(DIRECTION, True, SEED,
                                              BATCH_SIZE)
+_, validation_dl = get_dataloaders("bztdz" if DIRECTION == "dztbz" else "dztbz",
+                                   False, SEED, BATCH_SIZE)
 
 classifier = Classifier().to(device)
 #model.load_state_dict(torch.load(f"models/classifier_{DIRECTION}.pt", map_location="cpu"))
 optimizer = torch.optim.Adam(classifier.parameters(), lr=LR)
+
+
+def evaluate(predicted, y):
+    aupr = average_precision_score(y, predicted)
+
+
+
+all_predictions = []
+all_ys = []
+for proteins, ligands, y in training_dl:
+    with torch.no_grad():
+        proteins, ligands, y = (proteins.to(device),
+                                ligands.to(device),
+                                y.to(device))
+        _, _, predictions = \
+            classifier(proteins, ligands)
+
+        all_predictions.append(predictions.flatten().detach().cpu())
+        all_ys.append(y.float().detach().cpu())
+
+
+print(evaluate(np.concatenate(all_predictions),
+               np.concatenate(all_ys)))
+
 
 def get_loss(decoded_proteins, proteins, decoded_ligands, ligands, predictions, y):
     BCE = F.binary_cross_entropy(predictions.flatten(), y.float(), size_average=False)
@@ -35,7 +64,7 @@ epochs = 100
 global_min, best_epoch = 1e6, -1
 for epoch in range(epochs):
     total_both, total_bce, total_mse = 0, 0, 0
-    for proteins, ligands, y in training_dl:
+    for iteration, (proteins, ligands, y) in enumerate(training_dl):
         optimizer.zero_grad()
         proteins, ligands, y = (proteins.to(device),
                                 ligands.to(device),
@@ -50,13 +79,16 @@ for epoch in range(epochs):
         total_both += both.data.item()
         total_bce += bce.data.item()
         total_mse += mse.data.item()
-        both.backward()
+        if iteration % GAP == 0:
+            mse.backward()
+        else:
+            bce.backward()
         optimizer.step()
 
     print(f"Epoch[{epoch + 1}/{epochs}] Loss: {total_both / len(training_dl):.3f}")
     curr_row = f"{total_both},{total_bce},{total_mse},"
 
-    if epoch % 1 == 0:
+    if epoch % 5 == 0:
         with torch.no_grad():
             total_both, total_bce, total_mse = 0, 0, 0
             for proteins, ligands, y in validation_dl:
@@ -81,7 +113,7 @@ for epoch in range(epochs):
             global_min = total_bce
             best_epoch = epoch
             torch.save(classifier.state_dict(),
-                       f"models/classifier_{DIRECTION}.pt")
+                       f"models/classifier_{DIRECTION}_{LR}_{LAMBDA}.pt")
 
         print(global_min, best_epoch)
 

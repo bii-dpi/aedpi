@@ -13,17 +13,22 @@ from sklearn.metrics import (roc_auc_score,
 from progressbar import progressbar
 
 
+
+
 DIRECTION = "bztdz"
-CUDA = 0
 BATCH_SIZE = 128
 SEED = 12345
+GAP = 8
+LR = 1e-4
+LAMBDA = 1e-2
+CUDA = 0
 
 device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
 _, training_dl = get_dataloaders("bztdz" if DIRECTION == "dztbz" else "dztbz",
                                  False, SEED, BATCH_SIZE)
 
 classifier = Classifier().to(device)
-classifier.load_state_dict(torch.load(f"models/classifier_{DIRECTION}.pt", map_location="cpu"))
+classifier.load_state_dict(torch.load(f"models/classifier_{DIRECTION}_{LR}_{LAMBDA}.pt", map_location="cpu"))
 
 
 def evaluate(predicted, y):
@@ -40,12 +45,12 @@ def evaluate(predicted, y):
 
     results.to_csv(f"data/{DIRECTION}.csv")
 
-    return f"AUC: {auc}, AUPR: {aupr}, precision: {precision}, recall: {recall}"
+    return f"LR: {LR}, Lambda: {LAMBDA}, AUPR: {aupr}"
 
 
 all_predictions = []
 all_ys = []
-for proteins, ligands, y in progressbar(training_dl):
+for proteins, ligands, y in training_dl:
     with torch.no_grad():
         proteins, ligands, y = (proteins.to(device),
                                 ligands.to(device),

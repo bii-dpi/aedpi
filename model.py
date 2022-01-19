@@ -19,6 +19,84 @@ class UnFlatten(nn.Module):
         return input.view(input.size(0), size, 1, 1, 1)
 
 
+class Conv3DSA(nn.Module):
+    """
+    input:N*C*D*H*W
+    """
+    def __init__(self, in_ch, out_ch, N):
+        super().__init__()
+        self.N = N
+        self.C = in_ch
+        self.D = 3
+        self.H = 64
+        self.W = 64
+        self.gama = nn.Parameter(torch.tensor([0.0]))
+
+        self.in_ch = in_ch
+        self.out_ch = out_ch
+
+        self.conv3d_3 = nn.Sequential(
+            # Conv3d input:N*C*D*H*W
+            # Conv3d output:N*C*D*H*W
+            nn.Conv3d(in_channels=self.in_ch, out_channels=self.out_ch, kernel_size=(3, 3, 3), padding=1),
+            nn.BatchNorm3d(self.out_ch),
+            nn.ReLU(inplace=True),
+        )
+
+        self.conv3d_1 = nn.Sequential(
+            # Conv3d input:N*C*D*H*W
+            # Conv3d output:N*C*D*H*W
+            nn.Conv3d(in_channels=self.in_ch, out_channels=self.out_ch, kernel_size=(1, 1, 1)),
+            nn.BatchNorm3d(self.out_ch),
+            nn.ReLU(inplace=True),
+        )
+
+
+    @classmethod
+    def Cal_Patt(cls, k_x, q_x, v_x, N, C, D, H, W):
+        """
+        input:N*C*D*H*W
+        """
+        k_x_flatten = k_x.reshape((N, C, D, 1, H * W))
+        q_x_flatten = q_x.reshape((N, C, D, 1, H * W))
+        v_x_flatten = v_x.reshape((N, C, D, 1, H * W))
+        sigma_x = torch.mul(q_x_flatten.permute(0, 1, 2, 4, 3), k_x_flatten)
+        r_x = F.softmax(sigma_x, dim=4)
+        # r_x = F.softmax(sigma_x.float(), dim=4)
+        Patt = torch.matmul(v_x_flatten, r_x).reshape(N, C, D, H, W)
+        return Patt
+
+
+    @classmethod
+    def Cal_Datt(cls, k_x, q_x, v_x, N, C, D, H, W):
+        """
+        input:N*C*D*H*W
+        """
+        # k_x_transpose = k_x.permute(0, 1, 3, 4, 2)
+        # q_x_transpose = q_x.permute(0, 1, 3, 4, 2)
+        # v_x_transpose = v_x.permute(0, 1, 3, 4, 2)
+        k_x_flatten = k_x.permute(0, 1, 3, 4, 2).reshape((N, C, H, W, 1, D))
+        q_x_flatten = q_x.permute(0, 1, 3, 4, 2).reshape((N, C, H, W, 1, D))
+        v_x_flatten = v_x.permute(0, 1, 3, 4, 2).reshape((N, C, H, W, 1, D))
+        sigma_x = torch.mul(q_x_flatten.permute(0, 1, 2, 3, 5, 4), k_x_flatten)
+        r_x = F.softmax(sigma_x, dim=5)
+        # r_x = F.softmax(sigma_x.float(), dim=4)
+        Datt = torch.matmul(v_x_flatten, r_x).reshape(N, C, H, W, D)
+        return Datt.permute(0, 1, 4, 2, 3)
+
+
+    def forward(self, x):
+        v_x = self.conv3d_3(x)
+        k_x = self.conv3d_1(x)
+        q_x = self.conv3d_1(x)
+
+        Patt = self.Cal_Patt(k_x, q_x, v_x, self.N, self.C, self.D, self.H, self.W)
+        Datt = self.Cal_Datt(k_x, q_x, v_x, self.N, self.C, self.D, self.H, self.W)
+
+        Y = self.gama*(Patt + Datt) + x
+        return Y
+
+
 class Classifier(nn.Module):
     def __init__(self, h_dim=H_DIM, z_dim=512):
         super(Classifier, self).__init__()
