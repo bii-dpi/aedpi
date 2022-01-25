@@ -13,15 +13,13 @@ from sklearn.metrics import (roc_auc_score,
 from progressbar import progressbar
 
 
-
-
-DIRECTION = "bztdz"
+DIRECTION = "dztbz"
 BATCH_SIZE = 128
 SEED = 12345
 GAP = 8
 LR = 1e-4
 LAMBDA = 1e-2
-CUDA = 0
+CUDA = 3
 
 device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
 _, training_dl = get_dataloaders("bztdz" if DIRECTION == "dztbz" else "dztbz",
@@ -29,6 +27,12 @@ _, training_dl = get_dataloaders("bztdz" if DIRECTION == "dztbz" else "dztbz",
 
 classifier = Classifier().to(device)
 classifier.load_state_dict(torch.load(f"models/classifier_{DIRECTION}_{LR}_{LAMBDA}.pt", map_location="cpu"))
+
+
+def get_recall(precisions, recalls, prec_val):
+    precisions = np.abs(np.array(precisions) - prec_val)
+
+    return str(recalls[np.argmin(precisions)])
 
 
 def evaluate(predicted, y):
@@ -45,7 +49,14 @@ def evaluate(predicted, y):
 
     results.to_csv(f"data/{DIRECTION}.csv")
 
-    return f"LR: {LR}, Lambda: {LAMBDA}, AUPR: {aupr}"
+    precisions, recalls, _ = \
+        precision_recall_curve(y, predicted)
+
+    results = [str(aupr)]
+    for prec_val in [0.01, 0.05, 0.1, 0.25, 0.5]:
+        results.append(get_recall(precisions, recalls, prec_val))
+
+    return f"{DIRECTION},AEDPI,{','.join(results)}"
 
 
 all_predictions = []
