@@ -1,123 +1,120 @@
+import os
+import argparse
 import torch
+import numpy as np
 from model import Classifier
 from dataloader import get_dataloaders
 from progressbar import progressbar
 import torch.nn.functional as F
+from sklearn.metrics import average_precision_score
 
 
-
-
-DIRECTION = "bztdz"
 BATCH_SIZE = 128
 SEED = 12345
 GAP = 8
 LR = 1e-4
-LAMBDA = 0.01
-CUDA = 0
 
 
-device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
-training_dl, _ = get_dataloaders(DIRECTION, True, SEED,
-                                             BATCH_SIZE)
-_, validation_dl = get_dataloaders("bztdz" if DIRECTION == "dztbz" else "dztbz",
-                                   False, SEED, BATCH_SIZE)
+def get_bce_loss(predictions, y):
+    BCE = F.binary_cross_entropy(predictions.flatten(), y.float(), reduction="sum")
 
-classifier = Classifier().to(device)
-#model.load_state_dict(torch.load(f"models/classifier_{DIRECTION}.pt", map_location="cpu"))
-optimizer = torch.optim.Adam(classifier.parameters(), lr=LR)
+    return BCE
 
 
-def evaluate(predicted, y):
-    aupr = average_precision_score(y, predicted)
+def get_mse_loss(decoded_proteins, proteins, decoded_ligands, ligands):
+    MSE_protein = F.mse_loss(decoded_proteins, proteins, reduction="sum")
+    MSE_ligand = F.mse_loss(decoded_ligands, ligands, reduction="sum")
+
+    return MSE_protein + MSE_ligand
 
 
+def get_AUPR(all_ys, all_predictions):
+    all_ys = np.concatenate(all_ys)
+    all_predictions = np.concatenate(all_predictions)
 
-all_predictions = []
-all_ys = []
-for proteins, ligands, y in training_dl:
-    with torch.no_grad():
-        proteins, ligands, y = (proteins.to(device),
-                                ligands.to(device),
-                                y.to(device))
-        _, _, predictions = \
-            classifier(proteins, ligands)
-
-        all_predictions.append(predictions.flatten().detach().cpu())
-        all_ys.append(y.float().detach().cpu())
+    return average_precision_score(all_ys, all_predictions)
 
 
-print(evaluate(np.concatenate(all_predictions),
-               np.concatenate(all_ys)))
+def save_trained(direction):
+    if os.path.isfile(f"models/classifier_{direction}.pt"):
+        return
 
+    device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
+    training_dl, validation_dl, _  = get_dataloaders(direction, SEED, BATCH_SIZE)
 
-def get_loss(decoded_proteins, proteins, decoded_ligands, ligands, predictions, y):
-    BCE = F.binary_cross_entropy(predictions.flatten(), y.float(), size_average=False)
-    MSE_protein = F.mse_loss(decoded_proteins, proteins, size_average=False)
-    # Need MSE or BCE for ligands?
-    MSE_ligand = F.mse_loss(decoded_ligands, ligands, size_average=False)
+    classifier = Classifier().to(device)
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=LR)
 
-    return BCE + LAMBDA * (MSE_protein + MSE_ligand), BCE, MSE_protein + MSE_ligand
+    epochs = 100
+    #global_max, best_epoch = 0, -1
+    global_max, best_epoch = 1e8, -1
+    since_best = 0
+    for epoch in range(epochs):
+        for iteration, (proteins, ligands, y) in enumerate(training_dl):
+            if proteins.shape[0] == 1:
+                continue
+            optimizer.zero_grad()
+            proteins, ligands, y = (proteins.to(device),
+                                    ligands.to(device),
+                                    y.to(device))
 
+            if iteration % GAP == 0:
+                decoded_proteins, decoded_ligands = \
+                    classifier(proteins, ligands, decode=True)
 
-rows = ["tr_both,tr_bce,tr_mse,val_both,val_bce,val_mse"]
-epochs = 100
-global_min, best_epoch = 1e6, -1
-for epoch in range(epochs):
-    total_both, total_bce, total_mse = 0, 0, 0
-    for iteration, (proteins, ligands, y) in enumerate(training_dl):
-        optimizer.zero_grad()
-        proteins, ligands, y = (proteins.to(device),
-                                ligands.to(device),
-                                y.to(device))
-        decoded_proteins, decoded_ligands, predictions = \
-            classifier(proteins, ligands)
+                mse = get_mse_loss(decoded_proteins, proteins,
+                                   decoded_ligands, ligands)
+                mse.backward()
+            else:
+                predictions = classifier(proteins, ligands, decode=False)
 
-        both, bce, mse = get_loss(decoded_proteins, proteins,
-                                  decoded_ligands, ligands,
-                                  predictions, y)
+                bce = get_bce_loss(predictions, y)
+                bce.backward()
 
-        total_both += both.data.item()
-        total_bce += bce.data.item()
-        total_mse += mse.data.item()
-        if iteration % GAP == 0:
-            mse.backward()
-        else:
-            bce.backward()
-        optimizer.step()
+            optimizer.step()
 
-    print(f"Epoch[{epoch + 1}/{epochs}] Loss: {total_both / len(training_dl):.3f}")
-    curr_row = f"{total_both},{total_bce},{total_mse},"
+        # Need to also do the evaluation at the very end.
+        # Don't need to do patience for now.
+        if epoch % 5 == 0:
+            all_predictions, all_ys = [], []
+            with torch.no_grad():
+                total_bce = 0
+                for proteins, ligands, y in validation_dl:
+                    if proteins.shape[0] == 1:
+                        continue
+                    proteins, ligands, y = (proteins.to(device),
+                                            ligands.to(device),
+                                            y.to(device))
+                    predictions = classifier(proteins, ligands, decode=False)
+                    all_predictions.append(predictions.detach().cpu())
+                    all_ys.append(y.detach().cpu())
 
-    if epoch % 5 == 0:
-        with torch.no_grad():
-            total_both, total_bce, total_mse = 0, 0, 0
-            for proteins, ligands, y in validation_dl:
-                proteins, ligands, y = (proteins.to(device),
-                                        ligands.to(device),
-                                        y.to(device))
-                decoded_proteins, decoded_ligands, predictions = \
-                    classifier(proteins, ligands)
+                    total_bce += get_bce_loss(predictions, y).data.item()
 
-                both, bce, mse = get_loss(decoded_proteins, proteins,
-                                          decoded_ligands, ligands,
-                                          predictions, y)
+            curr_AUPR = get_AUPR(all_ys, all_predictions)
 
-                total_both += both.data.item()
-                total_bce += bce.data.item()
-                total_mse += mse.data.item()
-            curr_row += f"{total_both},{total_bce},{total_mse}"
+            #if  curr_AUPR > global_max:
+            if  total_bce < global_max:
+                #global_max = curr_AUPR
+                global_max = total_bce
+                best_epoch = epoch
+                torch.save(classifier.state_dict(),
+                           f"models/classifier_{direction}.pt")
+            else:
+                since_best += 1
+                if since_best == 5:
+                    return
 
-        rows.append(curr_row)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Description of your program')
+    parser.add_argument('CUDA', type=int)
+    args = vars(parser.parse_args())
+    CUDA = args["CUDA"]
 
-        if  total_bce < global_min:
-            global_min = total_bce
-            best_epoch = epoch
-            torch.save(classifier.state_dict(),
-                       f"models/classifier_{DIRECTION}_{LR}_{LAMBDA}.pt")
+    directions = [dir_.replace("_dir_dict.pkl", "")
+                  for dir_ in os.listdir("../get_data/Shallow/directions/")[CUDA::8]]
+    for direction in progressbar(directions):
+        print(direction)
+        save_trained(direction)
 
-        print(global_min, best_epoch)
-
-
-with open("results.csv", "w") as f:
-    f.write("\n".join(rows))
 

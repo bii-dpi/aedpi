@@ -49,46 +49,47 @@ class ComplexDataset(Dataset):
         return protein, ligand, label
 
 
-def read_examples(path):
-    with open(path, "r") as f:
-        examples = [line.split()[:2] for line in f.readlines()]
-    examples = [[line[0], line[1][:4]] for line in examples]
+def read_examples(direction, suffix):
+    with open(f"../get_data/AEDPI/data/{direction}_{suffix}", "r") as f:
+        examples = [line.split() for line in f.readlines()]
 
-    if path.endswith("actives"):
-        return [line + [1.] for line in examples]
-    else:
-        return [line + [0.] for line in examples]
+    examples = [[line[0], line[1][:4], float(line[2])] for line in examples]
+    actives = [line for line in examples if line[-1] == 1.0]
+    decoys = [line for line in examples if line[-1] == 0.0]
+
+    return actives, decoys
 
 
-def get_dataloaders(direction, resample, seed, batch_size):
+def get_dataloaders(direction, seed, batch_size):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    if direction == "dztbz":
-        dataset = "DUDE"
-    else:
-        dataset = "BindingDB"
+    actives, decoys = read_examples(direction, "training")
+    np.random.shuffle(actives)
+    np.random.shuffle(decoys)
 
-    actives = \
-        read_examples(f"../get_data/{dataset}/{dataset.lower()}_actives")
-    decoys = \
-        read_examples(f"../get_data/{dataset}/{dataset.lower()}_decoys")
+    training_actives = actives[:int(len(actives) * 0.8)]
+    validation_actives = actives[int(len(actives) * 0.8):]
 
-    if resample:
-        np.random.shuffle(decoys)
-        decoys = decoys[:len(actives)]
+    training_decoys = decoys[:int(len(decoys) * 0.8)]
+    validation_decoys = decoys[int(len(decoys) * 0.8):]
+    training_decoys = training_decoys[:len(training_actives)]
 
-    examples = actives + decoys
-    np.random.shuffle(examples)
+    validation_examples = validation_actives + validation_decoys
+    training_examples = training_actives + training_decoys
 
-    training_examples = examples[:int(len(examples) * 0.8)]
-    validation_examples = examples[int(len(examples) * 0.8):]
+    np.random.shuffle(training_examples)
+
+    actives, decoys = read_examples(direction, "testing")
+    testing_examples = actives + decoys
 
     training_ds = ComplexDataset(training_examples)
     validation_ds = ComplexDataset(validation_examples)
+    testing_ds = ComplexDataset(testing_examples)
 
     training_dl = DataLoader(training_ds, batch_size=batch_size, shuffle=True)
     validation_dl = DataLoader(validation_ds, batch_size=batch_size, shuffle=True)
+    testing_dl = DataLoader(testing_ds, batch_size=batch_size, shuffle=True)
 
-    return training_dl, validation_dl
+    return training_dl, validation_dl, testing_dl
 
