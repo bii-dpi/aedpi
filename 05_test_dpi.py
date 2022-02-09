@@ -48,6 +48,21 @@ def get_predictions(direction):
     return np.concatenate(all_predictions), np.concatenate(all_ys)
 
 
+def get_ef(y, prec_val, num_pos):
+    len_to_take = int(len(y) * prec_val)
+
+    return str(np.sum(y[:len_to_take]) / num_pos)
+
+
+def get_log_auc(predicted, y, num_pos):
+    prec_vals = np.arange(1, 101) / 1000
+    recalls = []
+    for prec_val in prec_vals:
+        recalls.append(float(get_ef(y, prec_val, num_pos)))
+
+    return str(np.trapz(y=recalls, x=np.log10(prec_vals)))
+
+
 def evaluate(direction):
     predicted, y = get_predictions(direction)
 
@@ -57,9 +72,17 @@ def evaluate(direction):
     precisions, recalls, _ = \
         precision_recall_curve(y, predicted)
 
-    results = [str(auc), str(aupr)]
+    sorted_indices = np.argsort(predicted)[::-1]
+    y = y[sorted_indices]
+    predicted = predicted[sorted_indices]
+    num_pos = np.sum(y)
+
+    results = [str(auc), str(aupr), get_log_auc(predicted, y, num_pos)]
     for prec_val in [0.01, 0.05, 0.1, 0.25, 0.5]:
         results.append(get_recall(precisions, recalls, prec_val))
+
+    for prec_val in [0.01, 0.05, 0.1, 0.25, 0.5]:
+        results.append(get_ef(y, prec_val, num_pos))
 
     return f"{direction},{','.join(results)}"
 
@@ -75,7 +98,7 @@ if __name__ == "__main__":
                for dir_ in os.listdir("../get_data/Shallow/directions/")[CUDA::8]]
 
     rows = []
-    for direction in progressbar(directions):
+    for direction in directions:
         rows.append(evaluate(direction))
 
     with open(f"results/{CUDA}", "w") as f:
