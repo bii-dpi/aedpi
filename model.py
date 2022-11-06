@@ -46,29 +46,28 @@ class Classifier(nn.Module):
             nn.ReLU(),
         )
 
-        self.ligand_encoder = nn.Sequential(
-            nn.Linear(1024, 768),
-            nn.ReLU(),
-            nn.BatchNorm1d(768),
 
-            nn.Linear(768, 512),
+        self.ligand_encoder = nn.Sequential(
+            nn.Conv3d(1, 32, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.BatchNorm1d(512),
+
+            nn.Conv3d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+
+            Flatten()
         )
 
         self.ligand_fc1 = nn.Linear(h_dim, z_dim)
         self.ligand_fc2 = nn.Linear(z_dim, h_dim)
 
         self.ligand_decoder = nn.Sequential(
-            nn.Sigmoid(),
-            nn.BatchNorm1d(512),
+            UnFlatten(),
 
-            nn.Linear(512, 768),
-            nn.Sigmoid(),
-            nn.BatchNorm1d(768),
+            nn.ConvTranspose3d(H_DIM, 32, kernel_size=6, stride=2),
+            nn.ReLU(),
 
-            nn.Linear(768, 1024),
-            nn.Sigmoid(),
+            nn.ConvTranspose3d(32, 1, kernel_size=6, stride=2),
+            nn.ReLU(),
         )
 
         self.fcnn = nn.Sequential(
