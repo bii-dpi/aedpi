@@ -26,7 +26,7 @@ def get_recall(precisions, recalls, prec_val):
 
 
 def get_predictions(direction):
-    _, _, testing_dl = get_dataloaders(direction, SEED, BATCH_SIZE)
+    _, testing_dl = get_dataloaders(direction, SEED, BATCH_SIZE)
 
     classifier = Classifier().to(device)
     classifier.load_state_dict(torch.load(f"models/classifier_{direction}.pt", map_location="cpu"))
@@ -55,12 +55,12 @@ def get_ef(y, prec_val, num_pos):
 
 
 def get_log_auc(predicted, y, num_pos):
-    prec_vals = np.arange(1, 101) / 1000
+    prec_vals = np.linspace(.0001, 1, 10000)
     recalls = []
     for prec_val in prec_vals:
         recalls.append(float(get_ef(y, prec_val, num_pos)))
 
-    return str(np.trapz(y=recalls, x=np.log10(prec_vals)))
+    return str(np.trapz(y=recalls, x=np.log10(prec_vals) / 3, dx=1/30))
 
 
 def evaluate(direction):

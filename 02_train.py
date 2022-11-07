@@ -42,7 +42,7 @@ def save_trained(direction):
     '''
 
     device = torch.device(f'cuda:{CUDA}' if torch.cuda.is_available() else 'cpu')
-    training_dl, validation_dl, _  = get_dataloaders(direction, SEED, BATCH_SIZE)
+    training_dl, _  = get_dataloaders(direction, SEED, BATCH_SIZE)
 
     classifier = Classifier().to(device)
     optimizer = torch.optim.Adam(classifier.parameters(), lr=LR)
@@ -75,37 +75,9 @@ def save_trained(direction):
 
             optimizer.step()
 
-        # Need to also do the evaluation at the very end.
-        # Don't need to do patience for now.
-        if epoch % 5 == 0:
-            all_predictions, all_ys = [], []
-            with torch.no_grad():
-                total_bce = 0
-                for proteins, ligands, y in validation_dl:
-                    if proteins.shape[0] == 1:
-                        continue
-                    proteins, ligands, y = (proteins.to(device),
-                                            ligands.to(device),
-                                            y.to(device))
-                    predictions = classifier(proteins, ligands, decode=False)
-                    all_predictions.append(predictions.detach().cpu())
-                    all_ys.append(y.detach().cpu())
+    torch.save(classifier.state_dict(),
+               f"models/classifier_{direction}.pt")
 
-                    total_bce += get_bce_loss(predictions, y).data.item()
-
-            curr_AUPR = get_AUPR(all_ys, all_predictions)
-
-            #if  curr_AUPR > global_max:
-            if  total_bce < global_max:
-                #global_max = curr_AUPR
-                global_max = total_bce
-                best_epoch = epoch
-                torch.save(classifier.state_dict(),
-                           f"models/classifier_{direction}.pt")
-            else:
-                since_best += 1
-                if since_best == 5:
-                    return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -113,8 +85,8 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
     CUDA = args["CUDA"]
 
-    directions = ["btd", "dtb"][1]
-    for direction in progressbar([directions]):
+    directions = ["btd", "dtb"]
+    for direction in progressbar(directions):
         print(direction)
         save_trained(direction)
 
