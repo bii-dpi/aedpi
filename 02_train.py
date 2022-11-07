@@ -113,8 +113,8 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
     CUDA = args["CUDA"]
 
-    directions = ["btd", "dtb"]
-    for direction in progressbar(directions):
+    directions = ["btd", "dtb"][1]
+    for direction in progressbar([directions]):
         print(direction)
         save_trained(direction)
 

@@ -1,3 +1,4 @@
+import os
 import torch
 import pickle
 
@@ -17,7 +18,10 @@ pdb_ids = \
     list(pd.read_pickle(f"../get_data/BindingDB/sequence_to_id_map.pkl").values())
 pdb_ids += \
     list(pd.read_pickle(f"../get_data/DUDE/sequence_to_id_map.pkl").values())
-pdb_ids = [pdb_id for pdb_id in pdb_ids if pdb_id != "5YZ0_B"]
+pdb_ids = [pdb_id for pdb_id in pdb_ids if pdb_id != "5YZ0_B"
+            and f"{pdb_id}_ligand_grids.pkl" not in
+            os.listdir("data/grids")]
+print(len(pdb_ids))
 
 
 elements_list = ['C', 'N', 'O', 'P', 'S', 'F', 'CL', 'BR', 'I']
@@ -68,7 +72,10 @@ def write_grid(pdb_id):
 
     grids_dict = dict()
     for smiles in progressbar(ligand_dict):
-        grids_dict[smiles] = get_grid(ligand_dict[smiles][0])
+        try:
+            grids_dict[smiles] = get_grid(ligand_dict[smiles][0])
+        except:
+            print(pdb_id)
 
     with open(f"data/grids/{pdb_id}_ligand_grids.pkl", "wb") as f:
         pickle.dump(grids_dict, f)

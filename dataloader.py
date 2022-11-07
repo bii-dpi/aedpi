@@ -7,9 +7,9 @@ from torch.utils.data import Dataset, DataLoader
 
 
 pdb_ids = \
-    list(pd.read_pickle("../get_data/BindingDB/sequence_to_id_map.pkl").values())[:2]
+    list(pd.read_pickle("../get_data/BindingDB/sequence_to_id_map.pkl").values())#[:2]
 pdb_ids += \
-    list(pd.read_pickle("../get_data/DUDE/sequence_to_id_map.pkl").values())[:2]
+    list(pd.read_pickle("../get_data/DUDE/sequence_to_id_map.pkl").values())#[:2]
 pdb_ids = [pdb_id for pdb_id in pdb_ids if pdb_id not in ["5YZ0_B", "6WHC_R"]]
 print(len(pdb_ids))
 
@@ -54,7 +54,7 @@ def read_examples(direction, suffix):
     examples = [line for line in examples
                 if line[1] in protein_grid_dict
                 and line[0] in ligand_grid_dict[line[1]]]
-#    print(old_len - len(examples))
+    print(old_len - len(examples))
 
     actives = [line for line in examples if line[-1] == 1.0]
     decoys = [line for line in examples if line[-1] == 0.0]
@@ -67,7 +67,6 @@ def get_dataloaders(direction, seed, batch_size):
     torch.manual_seed(seed)
 
     actives, decoys = read_examples(direction, "training")
-    print(len(actives))
     np.random.shuffle(actives)
     np.random.shuffle(decoys)
 
@@ -82,7 +81,6 @@ def get_dataloaders(direction, seed, batch_size):
     training_examples = training_actives + training_decoys
 
     np.random.shuffle(training_examples)
-    print(len(training_examples))
 
     actives, decoys = read_examples(direction, "testing")
     testing_examples = actives + decoys
