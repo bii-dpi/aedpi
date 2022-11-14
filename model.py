@@ -4,6 +4,7 @@ from torch import nn
 
 
 H_DIM = 512
+H_DIM = 256
 
 if not os.path.exists('models'):
     os.mkdir('models')
@@ -23,44 +24,20 @@ class Classifier(nn.Module):
     def __init__(self, h_dim=H_DIM, z_dim=512):
         super(Classifier, self).__init__()
 
-        self.protein_encoder = nn.Sequential(
-            nn.Conv3d(1, 32, kernel_size=4, stride=2),
+        self.encoder = nn.Sequential(
+            nn.Conv3d(2, 16, kernel_size=4, stride=2),
             nn.ReLU(),
 
-            nn.Conv3d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-
-            Flatten()
-        )
-
-        self.protein_fc1 = nn.Linear(h_dim, z_dim)
-        self.protein_fc2 = nn.Linear(z_dim, h_dim)
-
-        self.protein_decoder = nn.Sequential(
-            UnFlatten(),
-
-            nn.ConvTranspose3d(H_DIM, 32, kernel_size=6, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose3d(32, 1, kernel_size=6, stride=2),
-            nn.ReLU(),
-        )
-
-
-        self.ligand_encoder = nn.Sequential(
-            nn.Conv3d(1, 32, kernel_size=4, stride=2),
-            nn.ReLU(),
-
-            nn.Conv3d(32, 64, kernel_size=4, stride=2),
+            nn.Conv3d(16, 32, kernel_size=4, stride=2),
             nn.ReLU(),
 
             Flatten()
         )
 
-        self.ligand_fc1 = nn.Linear(h_dim, z_dim)
-        self.ligand_fc2 = nn.Linear(z_dim, h_dim)
+        self.fc1 = nn.Linear(h_dim, z_dim)
+        self.fc2 = nn.Linear(z_dim, h_dim)
 
-        self.ligand_decoder = nn.Sequential(
+        self.decoder = nn.Sequential(
             UnFlatten(),
 
             nn.ConvTranspose3d(H_DIM, 32, kernel_size=6, stride=2),
@@ -71,7 +48,7 @@ class Classifier(nn.Module):
         )
 
         self.fcnn = nn.Sequential(
-            nn.Linear(1024, 256),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.BatchNorm1d(256),
 
@@ -87,30 +64,23 @@ class Classifier(nn.Module):
             nn.Sigmoid()
         )
 
-    def encode(self, proteins, ligands):
-        flattened_proteins = self.protein_encoder(proteins)
-        encoded_proteins = self.protein_fc1(flattened_proteins)
+    def encode(self, volume):
+        flattened = self.encoder(volume)
+        encoded = self.fc1(flattened)
 
-        flattened_ligands = self.ligand_encoder(ligands)
-        encoded_ligands = self.ligand_fc1(flattened_ligands)
+        return encoded
 
-        return encoded_proteins, encoded_ligands
+    def decode(self, encoded):
+        flattened = self.fc2(encoded)
+        decoded = self.decoder(flattened)
 
-    def decode(self, encoded_proteins, encoded_ligands):
-        flattened_proteins = self.protein_fc2(encoded_proteins)
-        decoded_proteins = self.protein_decoder(flattened_proteins)
+        return decoded
 
-        flattened_ligands = self.ligand_fc2(encoded_ligands)
-        decoded_ligands = self.ligand_decoder(flattened_ligands)
-
-        return decoded_proteins, decoded_ligands
-
-    def forward(self, proteins, ligands, decode):
-        encoded_proteins, encoded_ligands = self.encode(proteins, ligands)
+    def forward(self, volume, decode):
+        encoded = self.encode(volume)
 
         if not decode:
-            return self.fcnn(torch.cat((encoded_proteins, encoded_ligands),
-                                       dim=1))
+            return self.fcnn(encoded)
         else:
-            return self.decode(encoded_proteins, encoded_ligands)
+            return self.decode(encoded)
 

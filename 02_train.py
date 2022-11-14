@@ -11,7 +11,7 @@ from sklearn.metrics import average_precision_score
 
 BATCH_SIZE = 128
 SEED = 12345
-GAP = 8
+GAP = 800
 LR = 1e-4
 
 
@@ -21,11 +21,10 @@ def get_bce_loss(predictions, y):
     return BCE
 
 
-def get_mse_loss(decoded_proteins, proteins, decoded_ligands, ligands):
-    MSE_protein = F.mse_loss(decoded_proteins, proteins, reduction="sum")
-    MSE_ligand = F.mse_loss(decoded_ligands, ligands, reduction="sum")
+def get_mse_loss(decoded_volumes, volumes):
+    MSE_volume = F.mse_loss(decoded_volumes, volumes, reduction="sum")
 
-    return MSE_protein + MSE_ligand
+    return MSE_volume
 
 
 def get_AUPR(all_ys, all_predictions):
@@ -52,23 +51,21 @@ def save_trained(direction):
     global_max, best_epoch = 1e8, -1
     since_best = 0
     for epoch in progressbar(range(epochs)):
-        for iteration, (proteins, ligands, y) in enumerate(training_dl):
-            if proteins.shape[0] == 1:
+        for iteration, (volumes, y) in enumerate(training_dl):
+            if volumes.shape[0] == 1:
                 continue
             optimizer.zero_grad()
-            proteins, ligands, y = (proteins.to(device),
-                                    ligands.to(device),
-                                    y.to(device))
+            volumes, y = (volumes.to(device),
+                           y.to(device))
 
             if iteration % GAP == 0:
-                decoded_proteins, decoded_ligands = \
-                    classifier(proteins, ligands, decode=True)
+                decoded_volumes = \
+                    classifier(volumes, decode=True)
 
-                mse = get_mse_loss(decoded_proteins, proteins,
-                                   decoded_ligands, ligands)
+                mse = get_mse_loss(decoded_volumes, volumes)
                 mse.backward()
             else:
-                predictions = classifier(proteins, ligands, decode=False)
+                predictions = classifier(volumes, decode=False)
 
                 bce = get_bce_loss(predictions, y)
                 bce.backward()

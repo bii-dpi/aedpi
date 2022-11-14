@@ -20,6 +20,9 @@ def get_trans_dim(dimension, kernel_size, stride, output_padding=0, padding=0, d
 encoder = [(32, 4, 2),
            (64, 4, 2)]
 
+encoder = [(16, 4, 2),
+           (32, 4, 2)]
+
 for out_channels, kernel_size, stride in encoder:
     width = int(get_conv_dim(width, kernel_size, stride))
     print(width)

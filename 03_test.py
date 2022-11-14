@@ -33,14 +33,13 @@ def get_predictions(direction):
 
     all_predictions = []
     all_ys = []
-    for proteins, ligands, y in testing_dl:
+    for volumes, y in testing_dl:
         with torch.no_grad():
-            if proteins.shape[0] == 1:
+            if volumes.shape[0] == 1:
                 continue
-            proteins, ligands, y = (proteins.to(device),
-                                    ligands.to(device),
-                                    y.to(device))
-            predictions = classifier(proteins, ligands, decode=False)
+            volumes, y = (volumes.to(device),
+                          y.to(device))
+            predictions = classifier(volumes, decode=False)
 
             all_predictions.append(predictions.flatten().detach().cpu())
             all_ys.append(y.float().detach().cpu())

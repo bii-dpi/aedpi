@@ -39,7 +39,7 @@ class ComplexDataset(Dataset):
         protein = protein_grid_dict[self.examples[idx][1]]
         label = self.examples[idx][2]
 
-        return protein, ligand, label
+        return torch.cat((protein, ligand)), label
 
 
 def read_examples(direction, suffix):
